@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from agent import empty_response_guard as _empty_guard
 from agent.message_metadata import append_message
+from agent.recovery_provenance import mark_recovery_message
 from agent.turn_context_compaction import _refund_api_call
 from agent.turn_recovery import interruptible_backoff_sleep
 
@@ -216,9 +217,9 @@ def recover_empty_response(
         _nudge_msg["content"] = "(empty)"
         _nudge_msg["_empty_recovery_synthetic"] = True
         append_message(messages, _nudge_msg)
-        append_message(messages, {
+        append_message(messages, mark_recovery_message({
             "role": "user", "content": _EMPTY_TOOL_RESPONSE_NUDGE, "_empty_recovery_synthetic": True
-        })
+        }, "empty_response"))
         return _verdict("continue")
 
     # Thinking-only prefill: append the reasoning as-is and continue so the model sees

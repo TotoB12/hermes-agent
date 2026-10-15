@@ -12,6 +12,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from agent.message_metadata import append_message
+from agent.recovery_provenance import mark_recovery_message
 from agent.reasoning_promotion import answer_in_reasoning_capability
 from agent.repetition_guard import STOP_PATH_MIN_CHARS, is_runaway_repetition
 from agent.turn_failure_copy import stamp_failure
@@ -235,13 +236,13 @@ def finish_text_response(
             interim_msg["api_content"] = final_response
         append_message(messages, interim_msg)
         agent._emit_interim_assistant_message(interim_msg)
-        append_message(messages, {
+        append_message(messages, mark_recovery_message({
             "role": "user",
             "content": (
                 _DEGENERATE_FINAL_NUDGE if _continuation_kind == "degenerate"
                 else _CODEX_ACK_CONTINUATION_NUDGE
             ),
-        })
+        }, "degenerate_final" if _continuation_kind == "degenerate" else "ack_continuation"))
         agent._session_messages = messages
         # An acknowledgment is non-final: its text must not suppress iteration-limit
         # summarization if the continuation exhausts budget.
@@ -308,11 +309,11 @@ def finish_text_response(
         # and the finalization pop strips an unanswered tail pair.
         final_msg["_dropped_toolcall_nudge"] = True
         append_message(messages, final_msg)
-        append_message(messages, {
+        append_message(messages, mark_recovery_message({
             "role": "user",
             "content": _DROPPED_TOOLCALL_NUDGE_CONTENT,
             "_dropped_toolcall_nudge": True,
-        })
+        }, "dropped_toolcall"))
         agent._session_messages = messages
         final_response = None
         return _verdict("continue")

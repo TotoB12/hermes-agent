@@ -5039,6 +5039,15 @@ Write only the summary body. Do not include any preamble or prefix."""
                 prepend=True,
             )
         drop_stale_api_content(replay)
+        # Presentation provenance is separate from the model-facing replay bytes.
+        # Keep the request actionable, and retain its original identity/time even
+        # when an earlier cycle folded it onto a different summary carrier.
+        from agent.recovery_provenance import mark_active_request_replay
+
+        mark_active_request_replay(
+            replay, inflight, placement="standalone", fallback_text=task_text,
+            origin_is_carrier=self._has_merged_inflight_replay(inflight),
+        )
 
         # The replay is a replacement for the in-flight row, not an additional
         # occurrence of it. When the original survived in the protected head,
@@ -5094,6 +5103,10 @@ Write only the summary body. Do not include any preamble or prefix."""
                 "\n\n" + _INFLIGHT_TASK_REPLAY_HEADER + "\n" + task_text,
             )
             drop_stale_api_content(carrier)
+            mark_active_request_replay(
+                carrier, inflight, placement="summary_suffix", fallback_text=task_text,
+                origin_is_carrier=self._has_merged_inflight_replay(inflight),
+            )
             # The carrier absorbed a durable user turn: record its uid (merge witness).
             record_absorbed_message(carrier, inflight)
             return compressed

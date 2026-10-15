@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from agent.error_classifier import FailoverReason
 from agent.message_metadata import append_message
+from agent.recovery_provenance import mark_recovery_message
 from agent.message_sanitization import close_interrupted_tool_sequence
 from agent.repetition_guard import is_repetition_dominated
 from agent.turn_api_call import stop_thinking_spinner
@@ -335,10 +336,10 @@ def _continue_text(st: _Trunc, _retry: TurnRetryState, assistant_message: Any) -
             agent._vprint(f"{agent.log_prefix}↻ Stream interrupted — requesting continuation ({n}/4)...", diagnostic=True)
         else:
             agent._vprint(f"{agent.log_prefix}↻ Requesting continuation ({n}/4)...", diagnostic=True)
-        append_message(messages, {
+        append_message(messages, mark_recovery_message({
             "role": "user", "content": _get_continuation_prompt(st.is_stub, _dropped_tools),
             "_length_continuation_nudge": True,
-        })
+        }, "length_continuation"))
         agent._session_messages = messages
         _retry.restart_with_length_continuation = True
         return st.done("break")
@@ -659,7 +660,8 @@ def continue_codex_incomplete(
                 )
                 # Alternation guard: the nudge may only follow an assistant row.
                 if not _already_nudged and _last_msg.get("role") == "assistant":
-                    append_message(messages, {"role": "user", "content": _CODEX_INCOMPLETE_NUDGE})
+                    append_message(messages, mark_recovery_message(
+                        {"role": "user", "content": _CODEX_INCOMPLETE_NUDGE}, "codex_incomplete"))
         if not interim_has_content and _codex_finish_reason(response) == "incomplete":
             agent._ephemeral_reasoning_off = True
             # No configured cap means the provider's own ceiling was hit: the observed
